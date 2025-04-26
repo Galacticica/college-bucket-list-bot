@@ -23,12 +23,12 @@ async def on_ready():
 async def load_cogs():
     print("Checking cogs directory...")
     print(pathlib.Path.cwd())
-    if not os.path.exists("discord_bot/cogs"):
+    if not os.path.exists("cogs"):
         print("Cogs directory does not exist!")
         return
 
-    print("Cogs directory contents:", os.listdir("discord_bot/cogs"))
-    for filename in os.listdir("discord_bot/cogs"):
+    print("Cogs directory contents:", os.listdir("cogs"))
+    for filename in os.listdir("cogs"):
         if filename.endswith(".py"):
             try:
                 print(f"Loading cog: {filename}")
