@@ -16,25 +16,56 @@ class Member(commands.Cog):
     @app_commands.command(name="complete", description="Complete a bucket list item")
     async def complete(self, interaction: discord.Interaction, item_id: int):
         try:
-            # Connect to the database
             conn = psycopg2.connect(DATABASE_URL, sslmode='require')
             cursor = conn.cursor()
 
-            # Update the status of the item in the "user-items" table
             cursor.execute('''
                 UPDATE "user-items"
                 SET status = TRUE
                 WHERE userid = %s AND itemid = %s;
             ''', (interaction.user.id, item_id))
 
-            
+            cursor.execute('''
+                SELECT item
+                FROM "bucketlist"
+                WHERE id = %s;
+            ''', (item_id,))
+            item = cursor.fetchone()
+            item_name = item[0]
 
-            # Commit changes and close the connection
             conn.commit()
             cursor.close()
             conn.close()
 
-            await interaction.response.send_message(f"Item {item_id} marked as complete.")
+            await interaction.response.send_message(f"{item_name} marked as complete.")
+        except Exception as e:
+            await interaction.response.send_message(f"Error: {e}")
+
+    @app_commands.command(name="incomplete", description="Mark a bucket list item as incomplete")
+    async def incomplete(self, interaction: discord.Interaction, item_id: int):
+        try:
+            conn = psycopg2.connect(DATABASE_URL, sslmode='require')
+            cursor = conn.cursor()
+
+            cursor.execute('''
+                UPDATE "user-items"
+                SET status = FALSE
+                WHERE userid = %s AND itemid = %s;
+            ''', (interaction.user.id, item_id))
+
+            cursor.execute('''
+                SELECT item
+                FROM "bucketlist"
+                WHERE id = %s;
+            ''', (item_id,))
+            item = cursor.fetchone()
+            item_name = item[0]
+
+            conn.commit()
+            cursor.close()
+            conn.close()
+
+            await interaction.response.send_message(f"{item_name} marked as incomplete.")
         except Exception as e:
             await interaction.response.send_message(f"Error: {e}")
 
