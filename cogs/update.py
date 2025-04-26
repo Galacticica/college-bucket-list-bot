@@ -21,25 +21,34 @@ class Update(commands.Cog):
             cursor = conn.cursor()
 
             # Check if the user already exists
-            cursor.execute('SELECT id FROM "user" WHERE id = %s;', (member.id,))
+            cursor.execute('SELECT discordid FROM "user" WHERE discordid = %s;', (str(member.id),))
             user_exists = cursor.fetchone()
+            print(f"User exists: {user_exists}")  # Debugging line
 
-            if not user_exists:
-                # Insert the new user into the "user" table
-                cursor.execute('''
-                    INSERT INTO "user" (id, discordid)
-                    VALUES (%s, %s);
-                ''', (member.id, str(member)))
+            if not user_exists and not member.bot:
+                    cursor.execute('''
+                        INSERT INTO "user" (id, discordid)
+                        VALUES (%s, %s);
+                    ''', (member.id, str(member.id)))
 
-                # Add all items from the "bucketlist" table to the "user-items" table for the new user
-                cursor.execute('''
-                    INSERT INTO "user-items" (userid, itemid, status)
-                    SELECT %s, id, FALSE FROM "bucketlist";
-                ''', (member.id,))
+                    cursor.execute('SELECT * FROM "user" WHERE discordid = %s;', (str(member.id),))
+                    user = cursor.fetchone()
+                    if user:
+                        print(f"User added successfully: {user}")
+                    else:
+                        print("User was not added.")
 
-                print(f"User {member.name} added to the database with bucketlist items.")
+                    cursor.execute('''
+                        INSERT INTO "user-items" (userid, itemid, status)
+                        SELECT u.id, b.id, FALSE
+                        FROM "user" u
+                        CROSS JOIN "bucketlist" b
+                        WHERE NOT EXISTS (
+                            SELECT 1 FROM "user-items" ui
+                            WHERE ui.userid = u.id AND ui.itemid = b.id
+                        );
+                    ''')
 
-            # Commit changes and close the connection
             conn.commit()
             cursor.close()
             conn.close()
@@ -51,36 +60,42 @@ class Update(commands.Cog):
     @app_commands.checks.has_permissions(administrator=True)
     async def add_all_members(self, interaction: discord.Interaction):
         try:
-            # Connect to the database
             conn = psycopg2.connect(DATABASE_URL, sslmode='require')
             cursor = conn.cursor()
 
-            # Iterate through all members in the server
             for member in interaction.guild.members:
-                # Skip bots
                 if member.bot:
                     continue
 
-                # Check if the user already exists
-                cursor.execute('SELECT id FROM "user" WHERE id = %s;', (member.id,))
+                cursor.execute('SELECT discordid FROM "user" WHERE discordid = %s;', (str(member.id),))
                 user_exists = cursor.fetchone()
+                print(f"User exists: {user_exists}")  
 
                 if not user_exists:
-                    # Insert the new user into the "user" table
                     cursor.execute('''
                         INSERT INTO "user" (id, discordid)
                         VALUES (%s, %s);
-                    ''', (member.id, str(member)))
+                    ''', (member.id, str(member.id)))
 
-                    # Add all items from the "bucketlist" table to the "user-items" table for the new user
-                    cursor.execute('''
-                        INSERT INTO "user-items" (userid, itemid, status)
-                        SELECT %s, id, FALSE FROM "bucketlist";
-                    ''', (member.id,))
+                    cursor.execute('SELECT * FROM "user" WHERE discordid = %s;', (str(member.id),))
+                    user = cursor.fetchone()
+                    if user:
+                        print(f"User added successfully: {user}")
+                    else:
+                        print("User was not added.")
 
-                    print(f"User {member.name} added to the database with bucketlist items.")
+            cursor.execute('''
+                INSERT INTO "user-items" (userid, itemid, status)
+                SELECT u.id, b.id, FALSE
+                FROM "user" u
+                CROSS JOIN "bucketlist" b
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM "user-items" ui
+                    WHERE ui.userid = u.id AND ui.itemid = b.id
+                );
+            ''')
+            print("Bucketlist items added for all users.")
 
-            # Commit changes and close the connection
             conn.commit()
             cursor.close()
             conn.close()

@@ -11,3 +11,4 @@ wheels/
 .env
 *.sqlite3
 *.sqlite
+sql.py
