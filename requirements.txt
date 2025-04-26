@@ -1,0 +1,6 @@
+discord.py
+sqlite3
+pathlib
+os
+dotenv
+asyncio
