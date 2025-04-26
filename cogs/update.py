@@ -132,7 +132,7 @@ class Update(commands.Cog):
             cursor.close()
             conn.close()
 
-            await interaction.response.send_message(f'Bucketlist item "{item_name}" has been added and updated for all users.', ephemeral=True)
+            await interaction.response.send_message(f'Bucketlist item "{item_name}" has been added as item #{new_item_id} and updated for all users.', ephemeral=True)
         except Exception as e:
             print(f"Error: {e}")
             await interaction.response.send_message(f"An error occurred: {e}", ephemeral=True)
