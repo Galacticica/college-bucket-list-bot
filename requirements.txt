@@ -1,5 +1,4 @@
 discord.py
 pathlib
-os
 dotenv
 asyncio
