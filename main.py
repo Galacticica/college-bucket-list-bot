@@ -15,7 +15,7 @@ async def on_ready():
     print("Setting bot presence...")
     await bot.change_presence(
         status=discord.Status.online,
-        activity=discord.Activity(type=discord.ActivityType, name="Suffering")
+        activity=discord.Activity(type=discord.ActivityType.competing, name="hell")
     )
     print('Bot is online!')
 
