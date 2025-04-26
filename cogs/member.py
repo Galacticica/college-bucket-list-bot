@@ -5,6 +5,8 @@ import psycopg2
 from dotenv import load_dotenv
 import os
 import asyncio
+import aiohttp  # Add this import for downloading the image
+import os       # Add this import for file handling
 
 load_dotenv()
 
@@ -15,7 +17,7 @@ class Member(commands.Cog):
         self.bot = bot
 
     @app_commands.command(name="complete", description="Complete a bucket list item (requires an image or video)")
-    async def complete(self, interaction: discord.Interaction, item_id: int):
+    async def complete(self, interaction: discord.Interaction, item_number: int):
         try:
             await interaction.response.send_message(
                 "Please reply with an image or video to complete this item.", ephemeral=True
@@ -38,8 +40,6 @@ class Member(commands.Cog):
 
             attachment_url = message.attachments[0].url
 
-            await message.delete()
-
             conn = psycopg2.connect(DATABASE_URL, sslmode='require')
             cursor = conn.cursor()
 
@@ -47,13 +47,13 @@ class Member(commands.Cog):
                 UPDATE "user-items"
                 SET status = TRUE
                 WHERE userid = %s AND itemid = %s;
-            ''', (interaction.user.id, item_id))
+            ''', (interaction.user.id, item_number))
 
             cursor.execute('''
                 SELECT item
                 FROM "bucketlist"
                 WHERE id = %s;
-            ''', (item_id,))
+            ''', (item_number,))
             item = cursor.fetchone()
             item_name = item[0]
 
@@ -61,20 +61,40 @@ class Member(commands.Cog):
                 UPDATE "user-items"
                 SET image_url = %s
                 WHERE userid = %s AND itemid = %s;
-            ''', (attachment_url, interaction.user.id, item_id))
+            ''', (attachment_url, interaction.user.id, item_number))
 
             conn.commit()
             cursor.close()
             conn.close()
 
-            await interaction.followup.send(
-                f"{interaction.user.mention} marked '{item_name}' as complete. {attachment_url}"
-            )
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(attachment_url) as response:
+                        if response.status == 200:
+                            with open("temp_image.jpg", "wb") as f:
+                                f.write(await response.read())
+
+                with open("temp_image.jpg", "rb") as image_file:
+                    discord_file = discord.File(image_file, filename="completed_item.jpg")
+                    embed = discord.Embed(
+                        title=f"{item_name} Completed!",
+                        description=f"{interaction.user.mention} marked '{item_name}' as complete.",
+                        color=discord.Color.green()
+                    )
+                    embed.set_image(url="attachment://completed_item.jpg")
+
+                    await interaction.channel.send(embed=embed, file=discord_file)
+
+                os.remove("temp_image.jpg")
+            except Exception as e:
+                await interaction.followup.send(f"Error: {e}", ephemeral=True)
+
+            await message.delete()
         except Exception as e:
             await interaction.followup.send(f"Error: {e}", ephemeral=True)
 
     @app_commands.command(name="incomplete", description="Mark a bucket list item as incomplete")
-    async def incomplete(self, interaction: discord.Interaction, item_id: int):
+    async def incomplete(self, interaction: discord.Interaction, item_number: int):
         try:
             conn = psycopg2.connect(DATABASE_URL, sslmode='require')
             cursor = conn.cursor()
@@ -83,19 +103,19 @@ class Member(commands.Cog):
                 UPDATE "user-items"
                 SET status = FALSE
                 WHERE userid = %s AND itemid = %s;
-            ''', (interaction.user.id, item_id))
+            ''', (interaction.user.id, item_number))
 
             cursor.execute('''
                 UPDATE "user-items"
                 SET image_url = NULL
                 WHERE userid = %s AND itemid = %s;
-            ''', (interaction.user.id, item_id))
+            ''', (interaction.user.id, item_number))
 
             cursor.execute('''
                 SELECT item
                 FROM "bucketlist"
                 WHERE id = %s;
-            ''', (item_id,))
+            ''', (item_number,))
             item = cursor.fetchone()
             item_name = item[0]
 
